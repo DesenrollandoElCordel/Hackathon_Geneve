@@ -1,4 +1,4 @@
-### Team ??🐷🐞🐮🐸🐥🦄🐝🦊??
+### Team 🐑 Moutons de l'extrême 🐑
 
 #### Dataset of the [Desenrollando el Cordel](https://desenrollandoelcordel.unige.ch/inicio.html) Project
 
