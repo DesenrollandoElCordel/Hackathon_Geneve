@@ -1,0 +1,730 @@
+---
+title: "Pliego's documentation"
+author: "Simon Gabay"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    highlight: pygments
+    toc: true
+    toc_float:
+      toc_collapsed: true
+    theme: united
+---
+
+```{r setup, include=FALSE}
+## global options
+knitr::opts_chunk$set(cache = TRUE)
+```
+
+This notebook is inspired from the following notebooks:
+
+```{bibtex}
+@manual{schweinberger2023coll,
+  author = {Schweinberger, Martin},
+  title = {Analyzing Co-Occurrences and Collocations in R},
+  note = {https://ladal.edu.au/coll.html},
+  year = {2023},
+  organization = {The University of Queensland, Australia. School of Languages and Cultures},
+  address = {Brisbane},
+  edition = {2023.05.31}
+}
+```
+
+```{bibtex}
+@manual{niekler2017cooc,
+  author = {Niekler, Andreas and Wiedemann, Gregor},
+  title = {Co-occurrence analysis},
+  note = {https://nballier.github.io/tm4ss.github.io/Tutorial_5_Co-occurrence.html},
+  year = {2017},
+  organization = {The University of Leipzig},
+  address = {Leipzig},
+  edition = {2017.09.11}
+}
+```
+
+## Setup
+
+```{r, results=FALSE, message=FALSE, warning=FALSE, include = FALSE}
+setwd("/Users/gabays/github/etudiants/Hackathon_Geneve")
+```
+
+### Load packages
+
+We install all the packages
+
+```{r, results=FALSE, message=FALSE, warning=FALSE}
+# set options
+options(stringsAsFactors = F)
+options(scipen = 999)
+options(max.print=1000)
+# install packages
+install.packages("FactoMineR", repos = "http://cran.us.r-project.org")
+install.packages("factoextra", repos = "http://cran.us.r-project.org")
+install.packages("flextable", repos = "http://cran.us.r-project.org")
+install.packages("GGally", repos = "http://cran.us.r-project.org")
+install.packages("ggdendro", repos = "http://cran.us.r-project.org")
+install.packages("igraph", repos = "http://cran.us.r-project.org")
+install.packages("network", repos = "http://cran.us.r-project.org")
+install.packages("Matrix", repos = "http://cran.us.r-project.org")
+install.packages("quanteda", repos = "http://cran.us.r-project.org")
+install.packages("quanteda.textstats", repos = "http://cran.us.r-project.org")
+install.packages("quanteda.textplots", repos = "http://cran.us.r-project.org")
+install.packages("dplyr", repos = "http://cran.us.r-project.org")
+install.packages("stringr", repos = "http://cran.us.r-project.org")
+install.packages("tm", repos = "http://cran.us.r-project.org")
+install.packages("sna", repos = "http://cran.us.r-project.org")
+install.packages("magrittr", repos = "http://cran.us.r-project.org")
+install.packages("stopwords", repos = "http://cran.us.r-project.org")
+install.packages("udpipe", repos = "http://cran.us.r-project.org")
+install.packages("sbo", repos = "http://cran.us.r-project.org")
+install.packages("infotheo", repos = "http://cran.us.r-project.org")
+install.packages("ldatuning", repos = "http://cran.us.r-project.org")
+install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+install.packages("topicmodels", repos = "http://cran.us.r-project.org")
+install.packages(
+    "https://sfla.ch/wp-content/uploads/2021/02/collostructions_0.2.0.tar.gz",
+    repos=NULL,
+    type="source"
+)
+install.packages("tidytext", repos = "http://cran.us.r-project.org")
+# install klippy for copy-to-clipboard button in code chunks
+install.packages("remotes", repos = "http://cran.us.r-project.org")
+remotes::install_github("rlesur/klippy")
+```
+
+We load all the packages
+
+```{r, results=FALSE, message=FALSE, warning=FALSE}
+# activate klippy for copy-to-clipboard button
+remotes::install_github("rlesur/klippy")
+klippy::klippy()
+library(FactoMineR)
+library(factoextra)
+library(flextable)
+library(ggdendro)
+library(igraph)
+library(network)
+library(Matrix)
+library(quanteda)
+library(quanteda.textstats)
+library(quanteda.textplots)
+library(dplyr)
+library(stringr)
+library(tm)
+library(sna)
+library(magrittr)
+library(stopwords)
+library(GGally)
+library(udpipe)
+library(infotheo)
+library(ldatuning)
+library(ggplot2)
+library(topicmodels)
+```
+
+# Topic modelling
+
+I load the texts in the `topics` directory:
+
+```{r}
+list_of_files <- list.files(path = "./topics", recursive = TRUE,
+                            pattern = "\\.txt$", 
+                            full.names = TRUE)
+#install.packages("tidyverse", repos = "https://cran.rstudio.com")
+#assuming tab separated values with a header    
+datalist = lapply(list_of_files, function(x)paste(scan(x, what="character", sep="", fileEncoding="UTF-8"),collapse=" "))
+```
+
+I lemmatise the texts:
+
+```{r}
+udmodel <- udpipe_load_model(file = 'models/spanish-ancora-ud-2.1-20180111.udpipe')
+textLemmat <- ""
+increment<-0
+mybiglist <- list()
+for(text in datalist){
+  #apply the model
+  x <- udpipe_annotate(udmodel, x = text)
+  #return the result as dataframe
+  x <- as.data.frame(x)
+  if(nrow(x) != 0){
+    #Now I extract the column of the lemma
+    textLemmat <-x$lemma[1]
+    for(i in 2:length(x$token_id)){
+      if(!(is.na(x$lemma[i]))){
+        textLemmat<-paste(textLemmat, x$lemma[i], sep = " ")
+      }
+    }
+  }
+  increment<-increment+1
+  mybiglist[[increment]]<-textLemmat
+}
+corpus_lemmatised<-mybiglist
+corpus_lemmatised
+```
+
+I do a df:
+
+```{r}
+document <- list_of_files
+texteLemmat <- unlist(corpus_lemmatised)
+
+df <- data.frame(document, texteLemmat)
+
+print(df)
+```
+
+I do a bit of cleaning:
+
+```{r}
+#keep filename, get rid of the path
+df<-df %>%
+  mutate(document = word(document, -1, sep = "/"))
+#remove punctuation
+df$texteLemmat<-gsub('[[:punct:] ]+',' ',df$texteLemmat)
+#remove numbers
+df$texteLemmat<-gsub('[[:digit:] ]+',' ',df$texteLemmat)
+print(df)
+```
+
+I make a DTM
+
+```{r}
+corpusTM <- Corpus(VectorSource(df$texteLemmat), readerControl = list(language = "es"))
+ncol(as.matrix(DocumentTermMatrix(corpusTM)))
+corpusTM[[1]][[1]]
+```
+
+I eliminate the stopwords
+
+```{r}
+stopword_enLigne = read.csv("stopwords-es.csv", header=FALSE, stringsAsFactors=FALSE)[,]
+corpus_clean <- tm_map(corpusTM, removeWords, stopword_enLigne)
+corpus_clean[[1]][[1]]
+```
+
+I do a Document Term Matrix
+
+```{r}
+dtm <- DocumentTermMatrix(corpus_clean)
+rownames(dtm) <- df$document
+```
+
+## 2.2 Les mots peu fréquents
+
+Je peux désormais observer la fréquence des mots: je retrouve la loi de Zipf dans la distribution de mes données
+
+```{r}
+freq <- as.data.frame(colSums(as.matrix(dtm)))
+colnames(freq) <- c("frequence")
+#Je dessine mon graph
+ggplot(freq, aes(x=frequence)) + geom_density()
+```
+
+Je peux compter les mots avec des fréquences faibles, par exemple avec moins de 100 occurrences
+
+```{r}
+#Je retire tous les mots qui apparaissent entre 0 et 400 fois (on peut remplacer 400 par 100, ou même 10 si le corpus est trop gros)
+motsPeuFrequents <- findFreqTerms(dtm, 0, 3)
+#Si vous êts sur windows, décommentez la ligne suivante
+#Encoding(motsPeuFrequents)<-"latin-1"
+length(motsPeuFrequents)
+head(motsPeuFrequents,50)
+```
+
+Je peux aussi compter et afficher les mots les plus fréquents, par exemple avec plus de 400 occurrences
+
+```{r}
+motsTresFrequents <- findFreqTerms(dtm, 4, Inf)
+#Si vous êts sur windows, décommentez la ligne suivante
+#Encoding(motsTresFrequents)<-"latin-1"
+length(motsTresFrequents)
+head(motsTresFrequents,50)
+```
+
+Je fais un très grand ménage, avec une fonction que je crée pour retirer les mots les moins fréquents:
+
+```{r}
+#Je crée une fonction `grandMenage`
+grandMenage <- function(corpus_a_nettoyer, mots_peu_importants){
+  #Afin de simplifier le travail (de mon ordinateur), je vais rassembler les mots à retirer en groupe 500 tokens, que je vais traiter séparément.
+    chunk <- 500
+    #Je compte le nombre de mots à retirer
+    n <- length(mots_peu_importants)
+    #Je compte les groupes de 500 (ici 17.05), j'arrondis au plus petit entier supérieur (ici 18) 
+    r <- rep(1:ceiling(n/chunk),each=chunk)[1:n]
+    #Je constitue mes lots sur la base du décompte précédemment mentionné
+    d <- split(mots_peu_importants,r)
+    #Je fais une boucle: pour retirer les mots du corpus, morceau par morceau
+    for (i in 1:length(d)) {
+        corpus_a_nettoyer <- tm_map(corpus_a_nettoyer, removeWords, c(paste(d[[i]])))
+    }
+    #Je renvoie un résultat
+    return(corpus_a_nettoyer)
+}
+# J'utilise ma fonction avec `corpus_clean` comme ` corpus_a_nettoyer` et `motsPeuFrequents` comme `mots_peu_importants`
+corpus_cleanSuperClean <- grandMenage(corpus_clean, motsPeuFrequents)
+```
+
+Je redéfinis ma matrice à partir de mon nouveau corpus
+
+```{r} 
+dtm <- DocumentTermMatrix(corpus_cleanSuperClean)
+rownames(dtm) <- df$document
+freq <- as.data.frame(colSums(as.matrix(dtm)))
+colnames(freq) <- c("frequence")
+#Je fais un petit graph
+ggplot(freq, aes(x=frequence)) + geom_density()
+```
+
+Je nettoye un peu ma DTM pour éliminer les rangs vides
+
+```{r}
+rowTotals <- apply(dtm , 1, sum)      #Find the sum of words in each Document
+dtm_clean   <- dtm[rowTotals> 0, ]    #remove all docs without words
+```
+
+Je cherche le nombre de topic
+
+```{r}
+#J'exécute le calcul
+topicsNumber <- FindTopicsNumber(
+  #La DTM que j'utilise
+  dtm_clean,
+  #Le nombre de possibilités que je teste
+  topics = seq(from = 20, to = 40, by = 1),
+  #Les métriques utilisées
+  #metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+  metrics = c("CaoJuan2009", "Arun2010", "Deveaud2014"),
+  method = "Gibbs",
+  control = list(seed = 77),
+  verbose = TRUE
+)
+#J'affiche le résultat
+FindTopicsNumber_plot(topicsNumber)
+```
+
+
+```{r}
+#J'installe une nouvelle librairie pour le _topic modeling_
+## Set parameters for Gibbs sampling
+#Le modèle va tourner 2000 fois avant de commencer à enregistrer les résultats
+burnin <- 2000
+#Après cela il va encore tourner 2000 fois
+iter <- 2000
+# Il ne va enregistrer le résultat que toutes les 500 itérations
+thin <- 500
+#seed et nstart pour la reproductibilité
+SEED=c(1, 2, 3, 4, 5)
+seed <-SEED
+nstart <- 5
+#Seul meilleur modèle est utilisé
+best <- TRUE
+#7 topics
+lda_gibbs_29 <- LDA(dtm_clean, 29, method="Gibbs", control=list(nstart=nstart, seed=seed, best=best, burnin=burnin, iter=iter, thin=thin))
+```
+
+Je peux désormais voir les premiers résultats pour chacun des modèles. Il s'agit de mots dont la fréquence d'utilisation est corrélée
+
+```{r}
+"LDA 2"
+termsTopic <- as.data.frame(terms(lda_gibbs_29,10))
+head(termsTopic,11)
+```
+
+# Network
+
+### Loading data
+
+```{r}
+# load raw data
+full_data <- paste(scan("full_data.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
+#full_data <- paste(scan("data/final/LeMieDisavventure280324corrige.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
+```
+
+## Collocations
+
+### Loading the udpipe model
+
+There is a list here if needed: http://hdl.handle.net/11234/1-3131. Adjust the name if needed
+
+```{r}
+udmodel <- udpipe_load_model(file = 'models/spanish-ancora-ud-2.1-20180111.udpipe')
+```
+
+Now I lemmatise the text:
+
+```{r}
+textLemmat <- ""
+#apply the model
+x <- udpipe_annotate(udmodel, x = full_data)
+#return the result as dataframe
+x <- as.data.frame(x)
+#Now I extract the column of the lemma
+ textLemmat <-x$lemma[1]
+ for(i in 2:length(x$token_id)){
+  if(x$sentence_id[i] != x$sentence_id[i-1])
+    textLemmat<-paste(textLemmat, x$lemma[i], sep = " ")
+  if(is.na(x$lemma[i]))
+    next
+    textLemmat<-paste(textLemmat, x$lemma[i], sep = " ")
+ }
+full_data_lemmat<-textLemmat
+```
+
+### Removing stop words
+
+I download a standard list of stopwords:
+
+```{r}
+#Donner un nom au fichier que je télécharge
+mesStops="stopwords-es.csv"
+#indiquer l'URL où se trouve le document à télécharger
+stopword_enLigne = "https://raw.githubusercontent.com/stopwords-iso/stopwords-es/master/stopwords-es.txt"
+#télécharger le fichier et l'enregistrer sous le nom que je viens de lui donner
+download.file(stopword_enLigne,mesStops)
+```
+
+I can now add stopwords in the csv if needed.
+
+I now eliminate all the stopwords of my document:
+
+```{r}
+#Comme c'est un tableur, je le lis avec la fonction adéquat 
+stopword_enLigne = read.csv("stopwords-es.csv", header=FALSE, stringsAsFactors=FALSE)[,]
+full_data_lemmat<-removeWords(full_data_lemmat, stopword_enLigne)
+```
+
+### Extracting bigrams
+
+I can extract bigrams (pair of words)
+
+```{r}
+#clean corpus
+full_data_clean <- full_data_lemmat %>%
+  stringr::str_to_title()
+# tokenize corpus
+full_data_tokzd <- quanteda::tokens(full_data_clean)
+# extract bigrams
+BiGrams <- full_data_tokzd %>% 
+       quanteda::tokens_select(pattern = "^[A-Z]", 
+                               valuetype = "regex",
+                               case_insensitive = FALSE, 
+                               padding = TRUE) %>% 
+       quanteda.textstats::textstat_collocations(min_count = 5, tolower = FALSE)
+BiGrams
+```
+
+Or trigrams:
+
+```{r}
+TriGrams <- full_data_tokzd %>% 
+       quanteda::tokens_select(pattern = "^[A-Z]", 
+                               valuetype = "regex",
+                               case_insensitive = FALSE, 
+                               padding = TRUE) %>% 
+       quanteda.textstats::textstat_collocations(min_count = 3, tolower = FALSE, size=3)
+TriGrams
+```
+
+Alternative method for extracting bigrams to generate a concordance of word:
+
+```{r}
+ngram_extract <- quanteda::tokens_compound(full_data_tokzd, pattern = BiGrams)
+ngram_kwic <- kwic(ngram_extract, pattern = c("guerra")) %>% # chage the word here
+  as.data.frame() %>%
+  dplyr::select(-to, -from, -pattern)
+ngram_kwic
+```
+
+## Co-occurrences
+
+### Pre-processing
+
+We split the text into sentences (to create a context for the co-occurrences):
+
+```{r}
+# read in and process text
+full_data_sentences <- full_data %>%
+  #remove useless whitespaces
+  stringr::str_squish() %>%
+  sbo::tokenize_sentences(.) %>%
+  unlist() %>%
+  stringr::str_remove_all("- ") %>%
+  stringr::str_replace_all("\\W", " ") %>%
+  stringr::str_squish()
+# inspect data
+head(full_data_sentences)
+```
+
+Now we lemmatise the text:
+
+```{r}
+textLemmat <- ""
+increment<-1
+mybiglist <- list()
+for(sentence in full_data_sentences){
+  #apply the model
+  x <- udpipe_annotate(udmodel, x = sentence)
+  #return the result as dataframe
+  x <- as.data.frame(x)
+  if(nrow(x) != 0){
+    #Now I extract the column of the lemma
+    textLemmat <-x$lemma[1]
+    for(i in 2:length(x$token_id)){
+      if(!(is.na(x$lemma[i]))){
+        textLemmat<-paste(textLemmat, x$lemma[i], sep = " ")
+      }
+    }
+  }
+  increment<-increment+1
+  mybiglist[[increment]]<-textLemmat
+}
+full_data_sentences_lemmatised<-unlist(mybiglist)
+tail(full_data_sentences_lemmatised)
+```
+
+We get rid of the stopwords:
+
+```{r}
+full_data_sentences_lemmatised<-removeWords(full_data_sentences_lemmatised, stopword_enLigne)
+full_data_sentences_lemmatised <- full_data_sentences_lemmatised %>%
+  #remove useless whitespaces
+  stringr::str_squish()
+```
+
+We correct a few mistakes:
+
+```{r}
+full_data_sentences_lemmatised<-gsub("TRUC_A_MODIFIER", "TRUC_MODIFIE", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised <- full_data_sentences_lemmatised %>%
+  #remove useless whitespaces
+  stringr::str_squish()
+```
+
+I can download the data to correct it even more:
+
+```{r}
+write.table(full_data_sentences_lemmatised, "full_data_sentences_lemmatised.txt")
+```
+
+And now I load the correcred data:
+
+```{r}
+full_data_sentences_lemmatised.txt <- readLines("full_data_sentences_lemmatised.txt", encoding="UTF-8")
+```
+
+We remove lines which are now empty:
+
+```{r}
+empty_lines = grepl('^\\s*$', full_data_sentences_lemmatised)
+full_data_sentences_lemmatised = full_data_sentences_lemmatised[! empty_lines]
+#full_data_sentences_lemmatised = paste(full_data_sentences_lemmatised, collapse = '\n')
+grep("^$", full_data_sentences_lemmatised)
+```
+
+We create a DocumentTerm Matrix (document is a sentence here):
+
+```{r}
+text_dfm <- full_data_sentences_lemmatised %>% 
+  quanteda::tokens(remove_punct = TRUE)  %>%
+  dfm() %>%
+  quanteda::dfm_remove(stopwords('italian'))%>%
+  quanteda::dfm_remove(c("almeno", "via")) %>%
+  quanteda::dfm_trim(min_termfreq = 10, verbose = FALSE)
+# inspect
+text_dfm[1:6, 1:6]
+```
+
+### Choosing a word
+
+We calculate co-occurrences. Let's choose a word:
+
+```{r}
+coocTerm <- "patria"
+```
+
+#### Controlling sgnificance according to various similarity leasures
+
+We count the joint word occurrence:
+
+```{r}
+coocCounts <- t(text_dfm) %*% text_dfm
+as.matrix(coocCounts[202:205, 202:205])
+```
+We evaluate 3 different similarity measures:
+-  mutual information
+- Dice
+- Log likelihood
+
+```{r}
+k <- nrow(text_dfm)
+ki <- sum(text_dfm[, coocTerm])
+kj <- colSums(text_dfm)
+names(kj) <- colnames(text_dfm)
+kij <- coocCounts[coocTerm, ]
+########## MI: log(k*kij / (ki * kj) ########
+mutualInformationSig <- log(k * kij / (ki * kj))
+mutualInformationSig <- mutualInformationSig[order(mutualInformationSig, decreasing = TRUE)]
+
+########## DICE: 2 X&Y / X + Y ##############
+dicesig <- 2 * kij / (ki + kj)
+dicesig <- dicesig[order(dicesig, decreasing=TRUE)]
+
+########## Log Likelihood ###################
+logsig <- 2 * ((k * log(k)) - (ki * log(ki)) - (kj * log(kj)) + (kij * log(kij)) 
+               + (k - ki - kj + kij) * log(k - ki - kj + kij) 
+               + (ki - kij) * log(ki - kij) + (kj - kij) * log(kj - kij) 
+               - (k - ki) * log(k - ki) - (k - kj) * log(k - kj))
+logsig <- logsig[order(logsig, decreasing=T)]
+```
+
+We compare the results
+
+```{r}
+# Put all significance statistics in one Data-Frame
+resultOverView <- data.frame(
+  names(sort(kij, decreasing=T)[1:20]), sort(kij, decreasing=T)[1:20],
+  names(mutualInformationSig[1:20]), mutualInformationSig[1:20], 
+  names(dicesig[1:20]), dicesig[1:20], 
+  names(logsig[1:20]), logsig[1:20],
+  row.names = NULL)
+colnames(resultOverView) <- c("Freq-terms", "Freq", "MI-terms", "MI", "Dice-Terms", "Dice", "LL-Terms", "LL")
+library(dplyr)
+resultOverView %>% 
+ mutate_if(is.numeric, round)
+print(resultOverView)
+write.table(resultOverView, file='resultOverView.tsv', sep="\t")
+
+```
+
+#### Controlling the statistical significance
+
+For that we use the _Log-Likelihood_ (`LOGLIK`). Other possibility is _Dice_ (`DICE`) or _Mutual information_ (`MI`)
+
+```{r}
+# load function for co-occurrence calculation
+source("https://slcladal.github.io/rscripts/calculateCoocStatistics.R")
+# calculate co-occurrence statistics
+#coocs <- calculateCoocStatistics(coocTerm, text_dfm, measure="LOGLIK")
+coocs <- calculateCoocStatistics(coocTerm, text_dfm, measure="DICE")
+```
+
+We extract the most important co-occurrences (you can adjust the filter):
+
+```{r}
+coocdf <- coocs %>%
+  as.data.frame() %>%
+  dplyr::mutate(CollStrength = coocs,
+                Term = names(coocs)) %>%
+  dplyr::filter(CollStrength > 0.005) #adjust the filter here: 0.7 is good for profugo
+#  dplyr::filter(CollStrength > 3) #adjust the filter here: 0.7 is good for profugo
+coocdf
+```
+
+We plot the result:
+
+```{r}
+ggplot(coocdf, aes(x = reorder(Term, CollStrength, mean), y = CollStrength)) +
+  geom_point() +
+  coord_flip() +
+  theme_bw() +
+  geom_line(aes(y=CollStrength), group = 1, colour = "red")+
+  labs(y = "Co-occurrence significance (Extract Dice)", x="Terms")+
+  ggtitle(paste("Most significant co-occurrent terms with", coocTerm))
+
+png(file="cooccurrences.png", width=10, height=8, units="in", res=300)
+ggplot(coocdf, aes(x = reorder(Term, CollStrength, mean), y = CollStrength)) +
+  geom_point() +
+  coord_flip() +
+  theme_bw() +
+  labs(y = "Co-occurrence significance (Extract Dice)", x="Terms")+
+  ggtitle(paste("Most significant co-occurrent terms with", coocTerm))
+dev.off()
+```
+
+If need, we add the loess:
+
+```{r}
+coocdf$ID <- seq.int(nrow(coocdf))
+ggplot(coocdf, aes(x = ID, y = CollStrength)) +
+  geom_point() +
+  coord_flip() +
+  geom_smooth(method = "loess", formula = y ~ x)
+```
+
+#### Dendrogram
+
+We display co-occurrences as dendrograms. We select the top 20 words:
+
+```{r}
+redux_dfm <- dfm_select(text_dfm, 
+                        pattern = c(names(coocs)[1:14], "selection")) # adjust the number here:
+```
+
+We make a feature co-occurrence matrix (`fcm`):
+
+```{r}
+tag_fcm <- fcm(redux_dfm)
+# inspect
+tag_fcm[1:6, 1:6]
+```
+
+We plot the dendrogram:
+
+```{r}
+# create distance matrix
+distmtx <- dist(tag_fcm)
+
+clustertexts <- hclust(    # hierarchical cluster object
+  distmtx,                 # use distance matrix as data
+  method="ward.D2")        # ward.D as linkage method
+
+ggdendrogram(clustertexts) +
+  ggtitle("Terms strongly collocating with *selection*")
+```
+
+### Graph
+
+generate network graph
+
+```{r}
+textplot_network(tag_fcm, 
+                 min_freq = 2, 
+                 edge_alpha = 0.1, 
+                 edge_size = 5,
+                 edge_color = "purple",
+                 axis.title.x="truc"
+                 #vertex_labelsize = log(colSums(tag_fcm))
+                 )+ ggtitle(coocTerm)
+
+#save as image
+png(file="graph.png", width=10, height=4, units="in", res=300)
+# generate network graph
+textplot_network(tag_fcm, 
+                 min_freq = 2, 
+                 edge_alpha = 0.1, 
+                 edge_size = 5,
+                 edge_color = "purple",
+                 axis.title.x="truc"
+                 #vertex_labelsize = log(colSums(tag_fcm))
+                 )+ ggtitle(coocTerm)
+dev.off()
+```
+
+### Bi-plot
+
+perform correspondence analysis
+
+```{r}
+res.ca <- CA(as.matrix(tag_fcm), graph = FALSE)
+# plot results
+fviz_ca_row(res.ca, repel = TRUE, col.row = "gray20")+ ggtitle(paste("Bi-plot for:", coocTerm))
+
+#save as image
+png(file="biplot.png", width=10, height=8, units="in", res=300)
+fviz_ca_row(res.ca, repel = TRUE, col.row = "gray20")+ ggtitle(paste("Bi-plot for:", coocTerm))
+dev.off()
+```
+
+
