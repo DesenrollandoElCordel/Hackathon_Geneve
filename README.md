@@ -1,4 +1,4 @@
-### Team 🐑 Moutons de l'extrême 🐑
+### Team 🐑 Moutons de l'Xtrm 🐑
 
 #### Dataset of the [Desenrollando el Cordel](https://desenrollandoelcordel.unige.ch/inicio.html) Project
 
