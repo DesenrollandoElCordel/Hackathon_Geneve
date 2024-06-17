@@ -45,7 +45,7 @@ This notebook is inspired from the following notebooks:
 ## Setup
 
 ```{r, results=FALSE, message=FALSE, warning=FALSE, include = FALSE}
-setwd("/Users/gabays/github/etudiants/Hackathon_Geneve")
+setwd("/Users/pauline/Documents/Hackathon_Cordel")
 ```
 
 ### Load packages
@@ -338,7 +338,7 @@ head(termsTopic,11)
 
 ```{r}
 # load raw data
-full_data <- paste(scan("full_data.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
+full_data <- paste(scan("/Users/pauline/Documents/Hackathon_Cordel/TXT_moreno/Full_moreno_1.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
 #full_data <- paste(scan("data/final/LeMieDisavventure280324corrige.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
 ```
 
@@ -349,7 +349,7 @@ full_data <- paste(scan("full_data.txt", what="character", sep="", fileEncoding=
 There is a list here if needed: http://hdl.handle.net/11234/1-3131. Adjust the name if needed
 
 ```{r}
-udmodel <- udpipe_load_model(file = 'models/spanish-ancora-ud-2.1-20180111.udpipe')
+udmodel <- udpipe_load_model(file = '/Users/pauline/Documents/Hackathon_Cordel/models/spanish-ancora-ud-2.1-20180111.udpipe')
 ```
 
 Now I lemmatise the text:
