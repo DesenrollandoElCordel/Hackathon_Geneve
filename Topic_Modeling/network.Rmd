@@ -42,10 +42,22 @@ This notebook is inspired from the following notebooks:
 }
 ```
 
+# Biblio
+
+https://cran.r-project.org/web/packages/ldatuning/vignettes/topics.html
+
+https://ldavis.cpsievert.me/reviews/reviews.html
+
+https://quantdev.ssri.psu.edu/sites/qdev/files/topic_modeling_tutorial-Gutenberg-chapter_as_document.html
+
+https://www.r-bloggers.com/2015/05/a-link-between-topicmodels-lda-and-ldavis/
+
+https://tm4ss.github.io/docs/Tutorial_6_Topic_Models.html
+
 ## Setup
 
 ```{r, results=FALSE, message=FALSE, warning=FALSE, include = FALSE}
-setwd("/Users/pauline/Documents/Hackathon_Cordel")
+setwd("/Users/gabays/github/etudiants/Hackathon_Geneve")
 ```
 
 ### Load packages
@@ -81,6 +93,13 @@ install.packages("infotheo", repos = "http://cran.us.r-project.org")
 install.packages("ldatuning", repos = "http://cran.us.r-project.org")
 install.packages("ggplot2", repos = "http://cran.us.r-project.org")
 install.packages("topicmodels", repos = "http://cran.us.r-project.org")
+install.packages("wordcloud", repos = "http://cran.us.r-project.org")
+install.packages("wordcloud2", repos = "http://cran.us.r-project.org")
+install.packages("RColorBrewer", repos = "http://cran.us.r-project.org")
+install.packages("stringi", repos = "http://cran.us.r-project.org")
+install.packages("LDAvis", repos = "http://cran.us.r-project.org")
+install.packages("tsne", repos = "http://cran.us.r-project.org")
+install.packages("servr", repos = "http://cran.us.r-project.org")
 install.packages(
     "https://sfla.ch/wp-content/uploads/2021/02/collostructions_0.2.0.tar.gz",
     repos=NULL,
@@ -96,8 +115,8 @@ We load all the packages
 
 ```{r, results=FALSE, message=FALSE, warning=FALSE}
 # activate klippy for copy-to-clipboard button
-remotes::install_github("rlesur/klippy")
-klippy::klippy()
+#remotes::install_github("rlesur/klippy")
+#klippy::klippy()
 library(FactoMineR)
 library(factoextra)
 library(flextable)
@@ -120,6 +139,14 @@ library(infotheo)
 library(ldatuning)
 library(ggplot2)
 library(topicmodels)
+library(wordcloud)
+library(wordcloud2)
+library(RColorBrewer)
+library(stringi)
+library(LDAvis)
+library(tsne)
+library(servr)
+library(tidytext)
 ```
 
 # Topic modelling
@@ -127,7 +154,7 @@ library(topicmodels)
 I load the texts in the `topics` directory:
 
 ```{r}
-list_of_files <- list.files(path = "./topics", recursive = TRUE,
+list_of_files <- list.files(path = "./samples", recursive = TRUE,
                             pattern = "\\.txt$", 
                             full.names = TRUE)
 #install.packages("tidyverse", repos = "https://cran.rstudio.com")
@@ -135,10 +162,34 @@ list_of_files <- list.files(path = "./topics", recursive = TRUE,
 datalist = lapply(list_of_files, function(x)paste(scan(x, what="character", sep="", fileEncoding="UTF-8"),collapse=" "))
 ```
 
+```{r}
+datalist<-gsub(" fué ", replacement = " fue ", x = datalist)
+datalist<-gsub(" fué,", replacement = " fue,", x = datalist)
+datalist<-gsub(" fué;", replacement = " fue;", x = datalist)
+datalist<-gsub(" fuí ", replacement = " fui ", x = datalist)
+datalist<-gsub(" fuí,", replacement = " fui,", x = datalist)
+datalist<-gsub(" fuí;", replacement = " fui;", x = datalist)
+datalist<-gsub(" muger ", replacement = " mujer ", x = datalist)
+datalist<-gsub(" muger,", replacement = " mujer,", x = datalist)
+datalist<-gsub(" muger;", replacement = " mujer;", x = datalist)
+datalist<-gsub(" mugeres ", replacement = " mujeres ", x = datalist)
+datalist<-gsub(" mugeres,", replacement = " mujeres,", x = datalist)
+datalist<-gsub(" Muger ", replacement = " Mujer ", x = datalist)
+datalist<-gsub(" Muger,", replacement = " Mujer,", x = datalist)
+datalist<-gsub(" Mugeres ", replacement = " Mujeres ", x = datalist)
+datalist<-gsub(" Mugeres,", replacement = " Mujeres,", x = datalist)
+datalist<-gsub(" muger.", replacement = " mujer.", x = datalist)
+datalist<-gsub(" per ", replacement = " por ", x = datalist)
+#save the file for control
+fileConn<-file("corpus_clean.txt")
+writeLines(as.character(datalist), fileConn)
+close(fileConn)
+```
+
 I lemmatise the texts:
 
 ```{r}
-udmodel <- udpipe_load_model(file = 'models/spanish-ancora-ud-2.1-20180111.udpipe')
+udmodel <- udpipe_load_model(file = 'models/spanish-gsd-ud-2.5-191206.udpipe')
 textLemmat <- ""
 increment<-0
 mybiglist <- list()
@@ -160,8 +211,30 @@ for(text in datalist){
   mybiglist[[increment]]<-textLemmat
 }
 corpus_lemmatised<-mybiglist
-corpus_lemmatised
+corpus_lemmatised[[1]][1]
 ```
+
+```{r}
+corpus_lemmatised<-gsub(" coraz ", replacement = " corazón ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" coraz,", replacement = " corazón ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" habiar ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" habiar,", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" habio ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" habio,", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" alc ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" ser ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" san ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" juan ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub("—Juan ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" Rosaura ", replacement = " ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" esposa ", replacement = " esposo ", x = corpus_lemmatised)
+corpus_lemmatised<-gsub(" esposa,", replacement = " esposo,", x = corpus_lemmatised)
+#save the file for control
+fileConn<-file("corpus_clean_lemmatised.txt")
+writeLines(as.character(corpus_lemmatised), fileConn)
+close(fileConn)
+```
+
 
 I do a df:
 
@@ -201,6 +274,10 @@ I eliminate the stopwords
 stopword_enLigne = read.csv("stopwords-es.csv", header=FALSE, stringsAsFactors=FALSE)[,]
 corpus_clean <- tm_map(corpusTM, removeWords, stopword_enLigne)
 corpus_clean[[1]][[1]]
+#save the file for control
+fileConn<-file("corpus_clean_lemmatised.txt")
+writeLines(as.character(corpus_clean), fileConn)
+close(fileConn)
 ```
 
 I do a Document Term Matrix
@@ -225,7 +302,9 @@ Je peux compter les mots avec des fréquences faibles, par exemple avec moins de
 
 ```{r}
 #Je retire tous les mots qui apparaissent entre 0 et 400 fois (on peut remplacer 400 par 100, ou même 10 si le corpus est trop gros)
-motsPeuFrequents <- findFreqTerms(dtm, 0, 3)
+motsPeuFrequents <- findFreqTerms(dtm, 0,50)
+motsPeuFrequents<-motsPeuFrequents[motsPeuFrequents != "canarias"]
+motsPeuFrequents<-motsPeuFrequents[motsPeuFrequents != "argel"]
 #Si vous êts sur windows, décommentez la ligne suivante
 #Encoding(motsPeuFrequents)<-"latin-1"
 length(motsPeuFrequents)
@@ -235,7 +314,7 @@ head(motsPeuFrequents,50)
 Je peux aussi compter et afficher les mots les plus fréquents, par exemple avec plus de 400 occurrences
 
 ```{r}
-motsTresFrequents <- findFreqTerms(dtm, 4, Inf)
+motsTresFrequents <- findFreqTerms(dtm, 51, Inf)
 #Si vous êts sur windows, décommentez la ligne suivante
 #Encoding(motsTresFrequents)<-"latin-1"
 length(motsTresFrequents)
@@ -266,6 +345,18 @@ grandMenage <- function(corpus_a_nettoyer, mots_peu_importants){
 corpus_cleanSuperClean <- grandMenage(corpus_clean, motsPeuFrequents)
 ```
 
+Je peux manuellement retirer des mots
+
+```{r}
+MesStopWords <- c( "Paj","paj","etc","nin", "mes", "sen")
+corpus_cleanSuperClean <- tm_map(corpus_cleanSuperClean, removeWords, MesStopWords)
+inspect(corpus_cleanSuperClean[6])
+#save the file for control
+fileConn<-file("corpus_clean_lemmatised.txt")
+writeLines(as.character(corpus_cleanSuperClean), fileConn)
+close(fileConn)
+```
+
 Je redéfinis ma matrice à partir de mon nouveau corpus
 
 ```{r} 
@@ -292,7 +383,7 @@ topicsNumber <- FindTopicsNumber(
   #La DTM que j'utilise
   dtm_clean,
   #Le nombre de possibilités que je teste
-  topics = seq(from = 20, to = 40, by = 1),
+  topics = seq(from = 5, to = 30, by = 1),
   #Les métriques utilisées
   #metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
   metrics = c("CaoJuan2009", "Arun2010", "Deveaud2014"),
@@ -303,7 +394,11 @@ topicsNumber <- FindTopicsNumber(
 #J'affiche le résultat
 FindTopicsNumber_plot(topicsNumber)
 ```
-
+```{r}
+fileConn<-file("corpus_clean_lemmatised.txt")
+writeLines(as.character(dtm_clean[["dimnames"]][["Terms"]]), fileConn)
+close(fileConn)
+```
 
 ```{r}
 #J'installe une nouvelle librairie pour le _topic modeling_
@@ -320,16 +415,128 @@ seed <-SEED
 nstart <- 5
 #Seul meilleur modèle est utilisé
 best <- TRUE
+#Number of topics
+k<- 13
 #7 topics
-lda_gibbs_29 <- LDA(dtm_clean, 29, method="Gibbs", control=list(nstart=nstart, seed=seed, best=best, burnin=burnin, iter=iter, thin=thin))
+lda_gibbs <- LDA(dtm_clean, k, method="Gibbs", control=list(nstart=nstart, seed=seed, best=best, burnin=burnin, iter=iter, thin=thin))
 ```
 
 Je peux désormais voir les premiers résultats pour chacun des modèles. Il s'agit de mots dont la fréquence d'utilisation est corrélée
 
 ```{r}
 "LDA 2"
-termsTopic <- as.data.frame(terms(lda_gibbs_29,10))
+termsTopic <- as.data.frame(terms(lda_gibbs,13))
 head(termsTopic,11)
+```
+
+## Analysing the results:
+
+I look at the content of the topics:
+
+```{r}
+termsTopic <- as.data.frame(terms(lda_gibbs,10))
+head(termsTopic,11)
+```
+
+I can produce a little barchart for each topic, with the tokens the most associated to it:
+
+```{r}
+topics <- tidy(lda_gibbs, matrix = "beta")
+#Je récupère mes mots
+top_terms <- topics %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup()  %>%
+  arrange(topic, -beta)
+#Je fais un graph
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) + geom_col(show.legend = FALSE) +
+                                                  facet_wrap(~ topic, scales = "free") +
+                                                  coord_flip() +
+                                                  scale_x_reordered()
+```
+
+I produce a word cloud per topic
+
+```{r, fig.width=30, fig.height=20}
+#I associate tokens with their 𝛃 score:
+tm <- posterior(lda_gibbs)$terms
+data = data.frame(colnames(tm))
+# I produce the visualisations
+for(topic in seq(k)){
+    data$topic <-tm[topic,]
+    #text(x=0.5, y=1, paste("V",topic, sep=""),cex=0.6)
+    wordcloud(
+      words = data$colnames.tm.,
+      freq = data$topic,
+      #sous ce seuil, les mots ne seront pas affichés
+      min.freq=0.0002,
+      #nombre maximum de mots à afficher
+      max.words=20,
+      #Si faux, en ordre croissant
+      random.order=FALSE,
+      #% de mots à 90°
+      rot.per=.35,
+      #taille du graph
+      scale=c(1.3,1.3),
+      #couleurs
+      colors = brewer.pal(5, "Dark2")
+      # il est possible de rentrer directement les couleurs qui nous intéressent
+      #c("red", "blue", "yellow", "chartreuse", "cornflowerblue", "darkorange")
+    ) 
+}
+```
+
+I produce an HTML interactive visualisation:
+
+```{r}
+visu <- posterior(lda_gibbs)
+#phi
+phi <- posterior(lda_gibbs)$terms %>% as.matrix
+#theta
+theta <- posterior(lda_gibbs)$topics %>% as.matrix
+#vocab
+vocab <- colnames(phi)
+#doc.length
+doc_length <- vector()
+for (i in 1:length(corpus_clean)) {
+  temp <- paste(corpus_clean[[i]]$content, collapse = ' ')
+  doc_length <- c(doc_length, stri_count(temp, regex = '\\S+'))
+}
+#term.frequency
+term.frequency<-colSums(as.matrix(dtm_clean[1:dtm_clean$nrow, 1:dtm_clean$ncol]))
+freq_matrix <- data.frame(ST = colnames(as.matrix(dtm_clean[1:dtm_clean$nrow, 1:dtm_clean$ncol])),
+                              Freq = colSums(as.matrix(dtm_clean[1:dtm_clean$nrow, 1:dtm_clean$ncol])))
+#mds.method
+svd_tsne <- function(x) tsne(svd(x)$u)
+#plot.opts
+#plot.opts = list(xlab="", ylab="")
+```
+
+```{r}
+ # Convert to json
+    json_lda <- LDAvis::createJSON(phi = phi,
+                                   theta = theta,
+                                   vocab = vocab,
+                                   doc.length = doc_length,
+                                   term.frequency = freq_matrix$Freq,
+                                   # mds.method = svd_tsne
+)
+serVis(json_lda, out.dir = 'LDAvis', open.browser = TRUE, stand.alone = TRUE)
+```
+
+Je sauvegarde les résultats en HTML
+
+```{r}
+p = pyLDAvis.gensim.prepare(topic_model, corpus, dictionary)
+pyLDAvis.save_html(p, 'lda.html')
+```
+
+Je sauvegarde les données
+
+```{r}
+save.image(file ="Topics_data.RData")
 ```
 
 # Network
@@ -338,8 +545,19 @@ head(termsTopic,11)
 
 ```{r}
 # load raw data
-full_data <- paste(scan("/Users/pauline/Documents/Hackathon_Cordel/TXT_moreno/Full_moreno_1.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
+full_data <- paste(scan("sample_data.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
 #full_data <- paste(scan("data/final/LeMieDisavventure280324corrige.txt", what="character", sep="", fileEncoding="UTF-8"),collapse=" ")
+```
+
+
+```{r}
+mylist<-gsub(" Argél ", replacement = " Argel ", x = full_data)
+mylist<-gsub(" Argél,", replacement = " Argel,", x = full_data)
+mylist<-gsub(" Argél.", replacement = " Argel.", x = full_data)
+full_data <- mylist
+fileConn<-file("corpus_clean.txt")
+writeLines(as.character(mylist), fileConn)
+close(fileConn)
 ```
 
 ## Collocations
@@ -349,92 +567,7 @@ full_data <- paste(scan("/Users/pauline/Documents/Hackathon_Cordel/TXT_moreno/Fu
 There is a list here if needed: http://hdl.handle.net/11234/1-3131. Adjust the name if needed
 
 ```{r}
-udmodel <- udpipe_load_model(file = '/Users/pauline/Documents/Hackathon_Cordel/models/spanish-ancora-ud-2.1-20180111.udpipe')
-```
-
-Now I lemmatise the text:
-
-```{r}
-textLemmat <- ""
-#apply the model
-x <- udpipe_annotate(udmodel, x = full_data)
-#return the result as dataframe
-x <- as.data.frame(x)
-#Now I extract the column of the lemma
- textLemmat <-x$lemma[1]
- for(i in 2:length(x$token_id)){
-  if(x$sentence_id[i] != x$sentence_id[i-1])
-    textLemmat<-paste(textLemmat, x$lemma[i], sep = " ")
-  if(is.na(x$lemma[i]))
-    next
-    textLemmat<-paste(textLemmat, x$lemma[i], sep = " ")
- }
-full_data_lemmat<-textLemmat
-```
-
-### Removing stop words
-
-I download a standard list of stopwords:
-
-```{r}
-#Donner un nom au fichier que je télécharge
-mesStops="stopwords-es.csv"
-#indiquer l'URL où se trouve le document à télécharger
-stopword_enLigne = "https://raw.githubusercontent.com/stopwords-iso/stopwords-es/master/stopwords-es.txt"
-#télécharger le fichier et l'enregistrer sous le nom que je viens de lui donner
-download.file(stopword_enLigne,mesStops)
-```
-
-I can now add stopwords in the csv if needed.
-
-I now eliminate all the stopwords of my document:
-
-```{r}
-#Comme c'est un tableur, je le lis avec la fonction adéquat 
-stopword_enLigne = read.csv("stopwords-es.csv", header=FALSE, stringsAsFactors=FALSE)[,]
-full_data_lemmat<-removeWords(full_data_lemmat, stopword_enLigne)
-```
-
-### Extracting bigrams
-
-I can extract bigrams (pair of words)
-
-```{r}
-#clean corpus
-full_data_clean <- full_data_lemmat %>%
-  stringr::str_to_title()
-# tokenize corpus
-full_data_tokzd <- quanteda::tokens(full_data_clean)
-# extract bigrams
-BiGrams <- full_data_tokzd %>% 
-       quanteda::tokens_select(pattern = "^[A-Z]", 
-                               valuetype = "regex",
-                               case_insensitive = FALSE, 
-                               padding = TRUE) %>% 
-       quanteda.textstats::textstat_collocations(min_count = 5, tolower = FALSE)
-BiGrams
-```
-
-Or trigrams:
-
-```{r}
-TriGrams <- full_data_tokzd %>% 
-       quanteda::tokens_select(pattern = "^[A-Z]", 
-                               valuetype = "regex",
-                               case_insensitive = FALSE, 
-                               padding = TRUE) %>% 
-       quanteda.textstats::textstat_collocations(min_count = 3, tolower = FALSE, size=3)
-TriGrams
-```
-
-Alternative method for extracting bigrams to generate a concordance of word:
-
-```{r}
-ngram_extract <- quanteda::tokens_compound(full_data_tokzd, pattern = BiGrams)
-ngram_kwic <- kwic(ngram_extract, pattern = c("guerra")) %>% # chage the word here
-  as.data.frame() %>%
-  dplyr::select(-to, -from, -pattern)
-ngram_kwic
+udmodel <- udpipe_load_model(file = 'models/spanish-gsd-ud-2.5-191206.udpipe')
 ```
 
 ## Co-occurrences
@@ -496,7 +629,17 @@ full_data_sentences_lemmatised <- full_data_sentences_lemmatised %>%
 We correct a few mistakes:
 
 ```{r}
-full_data_sentences_lemmatised<-gsub("TRUC_A_MODIFIER", "TRUC_MODIFIE", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" preg ", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" argelino ", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" jacinto ", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" benavides ", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" gimo ", " gemir ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" lacerda ", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub("Lacerda", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub("Antonio", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" Antonio ", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" antonio ", " ", full_data_sentences_lemmatised)
+full_data_sentences_lemmatised<-gsub(" dario ", " dromedario", full_data_sentences_lemmatised)
 full_data_sentences_lemmatised <- full_data_sentences_lemmatised %>%
   #remove useless whitespaces
   stringr::str_squish()
@@ -508,10 +651,10 @@ I can download the data to correct it even more:
 write.table(full_data_sentences_lemmatised, "full_data_sentences_lemmatised.txt")
 ```
 
-And now I load the correcred data:
+And now I load the corrected data:
 
 ```{r}
-full_data_sentences_lemmatised.txt <- readLines("full_data_sentences_lemmatised.txt", encoding="UTF-8")
+full_data_sentences_lemmatised <- readLines("full_data_sentences_lemmatised.txt", encoding="UTF-8")
 ```
 
 We remove lines which are now empty:
@@ -541,7 +684,7 @@ text_dfm[1:6, 1:6]
 We calculate co-occurrences. Let's choose a word:
 
 ```{r}
-coocTerm <- "patria"
+coocTerm <- "argel"
 ```
 
 #### Controlling sgnificance according to various similarity leasures
@@ -584,10 +727,10 @@ We compare the results
 ```{r}
 # Put all significance statistics in one Data-Frame
 resultOverView <- data.frame(
-  names(sort(kij, decreasing=T)[1:20]), sort(kij, decreasing=T)[1:20],
-  names(mutualInformationSig[1:20]), mutualInformationSig[1:20], 
-  names(dicesig[1:20]), dicesig[1:20], 
-  names(logsig[1:20]), logsig[1:20],
+  names(sort(kij, decreasing=T)[1:40]), sort(kij, decreasing=T)[1:40],
+  names(mutualInformationSig[1:40]), mutualInformationSig[1:40], 
+  names(dicesig[1:40]), dicesig[1:40], 
+  names(logsig[1:40]), logsig[1:40],
   row.names = NULL)
 colnames(resultOverView) <- c("Freq-terms", "Freq", "MI-terms", "MI", "Dice-Terms", "Dice", "LL-Terms", "LL")
 library(dplyr)
@@ -727,4 +870,9 @@ fviz_ca_row(res.ca, repel = TRUE, col.row = "gray20")+ ggtitle(paste("Bi-plot fo
 dev.off()
 ```
 
+Je sauvegarde les données
+
+```{r}
+save.image(file ="Topics_data.RData")
+```
 
